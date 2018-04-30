@@ -13,9 +13,15 @@ public class LamportClock extends Thread {
     // local time of a process
     private int time;
 
+    // order of the process (viewed from the master's perspective)
+    private int order;
+
     public LamportClock(InetAddress group, int port) throws Exception {
         this.group = group;
         this.port = port;
+
+        // if we don't assign an order to a process
+        this.order = -1;
 
         // set local time to random
         Random rand = new Random();
@@ -26,13 +32,22 @@ public class LamportClock extends Thread {
         sock.joinGroup(group);
     }
 
+    public LamportClock(InetAddress group, int port, int order) throws Exception {
+        this(group, port);
+        this.order = order;
+    }
+
+    public int getOrder() {
+        return this.order;
+    }
+
     public int getTime() {
         return this.time;
     }
 
     public int localEvent() {
         ++this.time;
-        System.out.println(this.getId() + " performing local event. local time is " + this.time);
+        // System.out.println(this.getId() + " performing local event. local time is " + this.time);
         return this.time;
     }
 
@@ -43,17 +58,14 @@ public class LamportClock extends Thread {
             this.time = Math.max(receivedTime, this.time) + 1;
         }
 
-        System.out.println(this.getId() + " received message from "
-            + senderId + ". local time is " + this.time);
+        // System.out.println(this.getId() + " received message from "
+        //     + senderId + ". local time is " + this.time);
 
         return this.time;
     }
 
     public int sendEvent(String msg) throws Exception {
         byte[] data = msg.getBytes();
-
-        // System.out.println(this.getId() + " sending message to " + id);
-        // System.out.println("Local time is " + this.time);
 
         ++this.time;
 
@@ -97,18 +109,40 @@ public class LamportClock extends Thread {
     }
 
     public void printTime(Event e) {
-        System.out.println();
-        System.out.println("Process " + this.getId());
-        System.out.println("Process' local time " + this.getTime());
-        System.out.println("\tEvent type: " + e.type);
-        System.out.println("\tEvent sender's ID: " + e.senderId);
-        System.out.println("\tEvent receiver's ID: " + e.receiverId);
-        System.out.println("\tEvent local time: " + e.localTime);
-        System.out.println("\tEvent content: " + e.content);
+        String logging = "\n";
+        logging += "Process " + this.getId() + "\n";
+        logging += "Process' local time " + this.getTime() + "\n";
+        logging += "\tEvent type: ";
+
+        switch(e.type) {
+            case 0:
+                logging += "LOCAL EVENT\n";
+                break;
+            case 1:
+                logging += "SEND EVENT\n";
+                break;
+            case 2:
+                logging += "RECEIVE EVENT\n";
+                break;
+            default:
+                break;
+        }
+
+        logging += "\tEvent sender's ID: " + e.senderId + "\n";
+        logging += "\tEvent receiver's ID: " + e.receiverId + "\n";
+        logging += "\tEvent local time: " + e.localTime + "\n";
+        logging += "\tEvent content: " + e.content + "\n";
+
+        System.out.print(logging);
     }
 
     public void run() {
-        System.out.println("Process " + this.getId() + " is initialized with local clock " + this.time);
+        String greeting = "";
+        greeting = "Unique ID " + this.getId() + " is initialized with local clock " + this.time;
+        if (this.order != -1)
+            greeting = "Process " + this.order + " " + greeting;
+
+        System.out.println(greeting);
         try {
             while (true) {
                 DatagramPacket d = new DatagramPacket(new byte[256], 256);

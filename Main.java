@@ -17,7 +17,7 @@ public class Main {
             InetAddress group = InetAddress.getByName("224.255.255.255");
             for (int i = 0; i < n; ++i) {
                 int port = 8888;
-                LamportClock lc = new LamportClock(group, port);
+                LamportClock lc = new LamportClock(group, port, i);
                 lc.start();
                 clocks[i] = lc;
             }
