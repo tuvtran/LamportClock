@@ -2,6 +2,7 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.lang.Thread;
+import java.util.Random;
 
 public class LamportClock extends Thread {
 
@@ -16,8 +17,9 @@ public class LamportClock extends Thread {
         this.group = group;
         this.port = port;
 
-        // set local time to 0
-        this.time = 0;
+        // set local time to random
+        Random rand = new Random();
+        this.time = rand.nextInt(10);
 
         sock = new MulticastSocket(port);
         sock.setTimeToLive(2);
@@ -47,16 +49,11 @@ public class LamportClock extends Thread {
         return this.time;
     }
 
-    public int sendEvent(long id) throws Exception {
-        /** send a message of the following format
-         * SENDER_ID|RECEIVER_ID|LOCAL_TIME
-         */
-        String msg = Long.toString(this.getId()) + "-"
-            + Long.toString(id) + "-" + Integer.toString(this.getTime());
+    public int sendEvent(String msg) throws Exception {
         byte[] data = msg.getBytes();
 
-        System.out.println(this.getId() + " sending message to " + id);
-        System.out.println("Local time is " + this.time);
+        // System.out.println(this.getId() + " sending message to " + id);
+        // System.out.println("Local time is " + this.time);
 
         ++this.time;
 
@@ -66,8 +63,52 @@ public class LamportClock extends Thread {
         return this.time;
     }
 
+    public void updateTime(Event e) throws Exception {
+        int type = e.type;
+
+        switch (type) {
+            case 0:
+                this.localEvent();
+                break;
+            case 1:
+                // extract information from the event
+                long senderId = e.senderId;
+                long receiverId = e.receiverId;
+                int localTime = e.localTime;
+                String content = e.content;
+
+                 /** send a message of the following format
+                 * SENDER_ID|RECEIVER_ID|LOCAL_TIME
+                 */
+                String msg = Long.toString(senderId) + "-" + Long.toString(receiverId)
+                    + "-" + localTime + "-" + content;
+                sendEvent(msg);
+                break;
+            case 2:
+                senderId = e.senderId;
+                localTime = e.localTime;
+                receivedEvent(senderId, localTime);
+                break;
+            default:
+                break;
+        }
+
+        printTime(e);
+    }
+
+    public void printTime(Event e) {
+        System.out.println();
+        System.out.println("Process " + this.getId());
+        System.out.println("Process' local time " + this.getTime());
+        System.out.println("\tEvent type: " + e.type);
+        System.out.println("\tEvent sender's ID: " + e.senderId);
+        System.out.println("\tEvent receiver's ID: " + e.receiverId);
+        System.out.println("\tEvent local time: " + e.localTime);
+        System.out.println("\tEvent content: " + e.content);
+    }
+
     public void run() {
-        System.out.println("Process " + this.getId() + " is waiting for event!");
+        System.out.println("Process " + this.getId() + " is initialized with local clock " + this.time);
         try {
             while (true) {
                 DatagramPacket d = new DatagramPacket(new byte[256], 256);
@@ -78,9 +119,16 @@ public class LamportClock extends Thread {
                 String[] meta = s.trim().split("-");
                 long senderId = Long.parseLong(meta[0]);
                 long receiverId = Long.parseLong(meta[1]);
-                int receivedTime = Integer.parseInt(meta[2]);
-                if (this.getId() == receiverId)
-                    receivedEvent(senderId, receivedTime);
+                int localTime = Integer.parseInt(meta[2]);
+                String content = "";
+                // if there is a message
+                if (meta.length >= 4)
+                    content = meta[3];
+
+                if (this.getId() == receiverId) {
+                    Event e = new Event(2, senderId, receiverId, localTime, content);
+                    updateTime(e);
+                }
             }
         } catch (Exception e) {
             System.err.println("LC Failed: " + e);

@@ -1,6 +1,8 @@
 import java.net.InetAddress;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.List;
 
 public class Main {
 
@@ -20,7 +22,11 @@ public class Main {
                 clocks[i] = lc;
             }
             BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-            while ((input = in.readLine()) != "exit") {
+            while (true) {
+                input = in.readLine();
+                if (input.equals("exit"))
+                    return;
+
                 /**
                  * A message format is of the following:
                  * EVENT_NAME ID_OF_SENDER (ID_OF_RECEIVER)
@@ -33,24 +39,43 @@ public class Main {
                  * SEND 1 2 (process 1 sends a message to process 2)
                  * LOCAL 3 (process 3 performs a local event)
                  */
-
                 // perform a string split operation based on space
                 String[] splits = input.split(" ");
                 if (splits.length == 0) {
                     continue;
                 }
                 switch(splits[0].toUpperCase()) {
+
                     case "SEND":
-                        int firstProcessId = Integer.parseInt(splits[1]);
+                        int clockArrayId = Integer.parseInt(splits[1]);
+                        long firstProcessId = clocks[clockArrayId].getId();
+                        int senderLocalTime = clocks[clockArrayId].getTime();
                         long secondProcessId = clocks[Integer.parseInt(splits[2])].getId();
-                        clocks[firstProcessId].sendEvent(secondProcessId);
+                        String messageContent = "";
+                        if (splits.length >= 3) {
+                            List<String> wordsList = Arrays.asList(
+                                Arrays.copyOfRange(splits, 3, splits.length));
+                            messageContent = String.join(" ", wordsList);
+                        }
+
+                        Event e = new Event(1, firstProcessId, secondProcessId, senderLocalTime, messageContent);
+                        clocks[clockArrayId].updateTime(e);
                         break;
+
                     case "LOCAL":
-                        firstProcessId = Integer.parseInt(splits[1]);
-                        clocks[firstProcessId].localEvent();
+                        clockArrayId = Integer.parseInt(splits[1]);
+                        firstProcessId = clocks[clockArrayId].getId();
+                        senderLocalTime = clocks[clockArrayId].getTime();
+                        secondProcessId = 0;
+                        messageContent = "";
+
+                        e = new Event(0, firstProcessId, secondProcessId, senderLocalTime, messageContent);
+                        clocks[clockArrayId].updateTime(e);
                         break;
+
                     default:
                         throw new RuntimeException("Invalid event name");
+
                 }
             }
         } catch(Exception e) {
