@@ -31,28 +31,41 @@ public class LamportClock extends Thread {
     }
 
     public int localEvent() {
-        return ++this.time;
-    }
-
-    public int sendEvent() {
-        return ++this.time;
-    }
-
-    public int receivedEvent(int receivedTime) {
-        int cur = getTime();
-
-        if (receivedTime < cur)
-            return cur;
-
-        this.time = Math.max(receivedTime, this.time) + 1;
+        ++this.time;
+        System.out.println(this.getId() + " performing local event. local time is " + this.time);
         return this.time;
     }
 
-    public void send(String msg) throws Exception {
+    public int receivedEvent(long senderId, int receivedTime) {
+        int cur = getTime();
+
+        if (receivedTime >= cur) {
+            this.time = Math.max(receivedTime, this.time) + 1;
+        }
+
+        System.out.println(this.getId() + " received message from "
+            + senderId + ". local time is " + this.time);
+
+        return this.time;
+    }
+
+    public int sendEvent(long id) throws Exception {
+        /** send a message of the following format
+         * SENDER_ID|RECEIVER_ID|LOCAL_TIME
+         */
+        String msg = Long.toString(this.getId()) + "-"
+            + Long.toString(id) + "-" + Integer.toString(this.getTime());
         byte[] data = msg.getBytes();
-        System.out.println(this.getId() + " sending "+data);
-        DatagramPacket d = new DatagramPacket(data,data.length,group,port);
+
+        System.out.println(this.getId() + " sending message to " + id);
+        System.out.println("Local time is " + this.time);
+
+        ++this.time;
+
+        DatagramPacket d = new DatagramPacket(data, data.length, group, port);
         sock.send(d);
+
+        return this.time;
     }
 
     public void run() {
@@ -62,7 +75,14 @@ public class LamportClock extends Thread {
                 DatagramPacket d = new DatagramPacket(new byte[256], 256);
                 sock.receive(d);
                 String s = new String(d.getData());
-                System.out.println(this.getId() + " receved " + s);
+                // System.out.println(this.getId() + " received " + s);
+
+                String[] meta = s.trim().split("-");
+                long senderId = Long.parseLong(meta[0]);
+                long receiverId = Long.parseLong(meta[1]);
+                int receivedTime = Integer.parseInt(meta[2]);
+                if (this.getId() == receiverId)
+                    receivedEvent(senderId, receivedTime);
             }
         } catch (Exception e) {
             System.err.println("LC Failed: " + e);
@@ -71,6 +91,8 @@ public class LamportClock extends Thread {
 
     public static void main(String[] args) {
         String input;
+
+        System.setProperty("java.net.preferIPv4Stack" , "true");
 
         try {
             int n = Integer.parseInt(args[0]);
@@ -102,12 +124,15 @@ public class LamportClock extends Thread {
                 if (splits.length == 0) {
                     continue;
                 }
-                switch(splits[0]) {
+                switch(splits[0].toUpperCase()) {
                     case "SEND":
-                        clocks[0].send(input);
+                        int firstProcessId = Integer.parseInt(splits[1]);
+                        long secondProcessId = clocks[Integer.parseInt(splits[2])].getId();
+                        clocks[firstProcessId].sendEvent(secondProcessId);
                         break;
-                    case "RECEIVE":
-                        clocks[0].send(input);
+                    case "LOCAL":
+                        firstProcessId = Integer.parseInt(splits[1]);
+                        clocks[firstProcessId].localEvent();
                         break;
                     default:
                         throw new RuntimeException("Invalid event name");
