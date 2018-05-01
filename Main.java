@@ -49,7 +49,6 @@ public class Main {
                     case "SEND":
                         int clockArrayId = Integer.parseInt(splits[1]);
                         long firstProcessId = clocks[clockArrayId].getId();
-                        int senderLocalTime = clocks[clockArrayId].getTime();
                         long secondProcessId = clocks[Integer.parseInt(splits[2])].getId();
                         String messageContent = "";
                         if (splits.length >= 3) {
@@ -58,18 +57,17 @@ public class Main {
                             messageContent = String.join(" ", wordsList);
                         }
 
-                        Event e = new Event(1, firstProcessId, secondProcessId, senderLocalTime, messageContent);
+                        Event e = new Event(1, firstProcessId, secondProcessId, messageContent);
                         clocks[clockArrayId].updateTime(e);
                         break;
 
                     case "LOCAL":
                         clockArrayId = Integer.parseInt(splits[1]);
                         firstProcessId = clocks[clockArrayId].getId();
-                        senderLocalTime = clocks[clockArrayId].getTime();
                         secondProcessId = 0;
                         messageContent = "";
 
-                        e = new Event(0, firstProcessId, secondProcessId, senderLocalTime, messageContent);
+                        e = new Event(0, firstProcessId, secondProcessId, messageContent);
                         clocks[clockArrayId].updateTime(e);
                         break;
 
@@ -80,6 +78,7 @@ public class Main {
             }
         } catch(Exception e) {
             System.err.println(e);
+            return;
         }
     }
 

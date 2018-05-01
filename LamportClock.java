@@ -25,7 +25,8 @@ public class LamportClock extends Thread {
 
         // set local time to random
         Random rand = new Random();
-        this.time = rand.nextInt(10);
+        // this.time = rand.nextInt(10);
+        this.time = 0;
 
         sock = new MulticastSocket(port);
         sock.setTimeToLive(2);
@@ -52,12 +53,6 @@ public class LamportClock extends Thread {
     }
 
     public int receivedEvent(long senderId, int receivedTime) {
-        int cur = getTime();
-
-        if (receivedTime >= cur) {
-            this.time = Math.max(receivedTime, this.time) + 1;
-        }
-
         // System.out.println(this.getId() + " received message from "
         //     + senderId + ". local time is " + this.time);
 
@@ -66,8 +61,6 @@ public class LamportClock extends Thread {
 
     public int sendEvent(String msg) throws Exception {
         byte[] data = msg.getBytes();
-
-        ++this.time;
 
         DatagramPacket d = new DatagramPacket(data, data.length, group, port);
         sock.send(d);
@@ -79,27 +72,31 @@ public class LamportClock extends Thread {
         int type = e.type;
 
         switch (type) {
+            // LOCAL EVENT
             case 0:
                 this.localEvent();
                 break;
-            case 1:
-                // extract information from the event
+
+            // SEND EVENT
+            case 1: // extract information from the event
                 long senderId = e.senderId;
                 long receiverId = e.receiverId;
-                int localTime = e.localTime;
+                // increase the time first before sending the message
+                e.localTime = ++this.time;
                 String content = e.content;
 
                  /** send a message of the following format
                  * SENDER_ID|RECEIVER_ID|LOCAL_TIME
                  */
                 String msg = Long.toString(senderId) + "-" + Long.toString(receiverId)
-                    + "-" + localTime + "-" + content;
+                    + "-" + e.localTime + "-" + content;
                 sendEvent(msg);
                 break;
+
+            // RECEIVE EVENT
             case 2:
-                senderId = e.senderId;
-                localTime = e.localTime;
-                receivedEvent(senderId, localTime);
+                // update its logical clock
+                this.time = Math.max(e.localTime, this.time) + 1;
                 break;
             default:
                 break;
@@ -109,7 +106,7 @@ public class LamportClock extends Thread {
     }
 
     public void printTime(Event e) {
-        String logging = "\n";
+        String logging = "-------------------------\n";
         logging += "Process " + this.getId() + "\n";
         logging += "Process' local time " + this.getTime() + "\n";
         logging += "\tEvent type: ";
@@ -132,13 +129,15 @@ public class LamportClock extends Thread {
         logging += "\tEvent receiver's ID: " + e.receiverId + "\n";
         logging += "\tEvent local time: " + e.localTime + "\n";
         logging += "\tEvent content: " + e.content + "\n";
+        logging += "-------------------------\n";
 
         System.out.print(logging);
     }
 
     public void run() {
         String greeting = "";
-        greeting = "Unique ID " + this.getId() + " is initialized with local clock " + this.time;
+        greeting = "Unique ID " + this.getId() +
+            " is initialized with local clock " + this.time;
         if (this.order != -1)
             greeting = "Process " + this.order + " " + greeting;
 
@@ -166,6 +165,7 @@ public class LamportClock extends Thread {
             }
         } catch (Exception e) {
             System.err.println("LC Failed: " + e);
+            return;
         }
     }
 
