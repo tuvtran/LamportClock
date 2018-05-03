@@ -7,13 +7,20 @@ import java.util.List;
 public class Main {
 
     public static void main(String[] args) {
-        String input;
 
-        System.setProperty("java.net.preferIPv4Stack" , "true");
+        if (args.length == 0) {
+            System.out.println("Usage: java Main (number of processses) [filename of commands]");
+            return;
+        }
+
+        // TODO: add support for reading commands from a file
+
+        String input;
 
         try {
             int n = Integer.parseInt(args[0]);
             LamportClock[] clocks = new LamportClock[n];
+            System.setProperty("java.net.preferIPv4Stack" , "true");
             InetAddress group = InetAddress.getByName("224.255.255.255");
             for (int i = 0; i < n; ++i) {
                 int port = 8888;
@@ -44,6 +51,7 @@ public class Main {
                 if (splits.length == 0) {
                     continue;
                 }
+
                 switch(splits[0].toUpperCase()) {
 
                     case "SEND":
