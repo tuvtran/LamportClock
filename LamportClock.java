@@ -2,6 +2,7 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.lang.Thread;
+import java.util.PriorityQueue;
 import java.util.Random;
 
 public class LamportClock extends Thread {
@@ -9,6 +10,7 @@ public class LamportClock extends Thread {
     private MulticastSocket sock;
     private InetAddress group;
     private int port;
+    private PriorityQueue<Request> clockPQ;
 
     // local time of a process
     private int time;
@@ -27,6 +29,9 @@ public class LamportClock extends Thread {
         Random rand = new Random();
         // this.time = rand.nextInt(10);
         this.time = 0;
+
+        // initialize the priority queue
+        this.clockPQ = new PriorityQueue<>();
 
         sock = new MulticastSocket(port);
         sock.setTimeToLive(2);
@@ -98,6 +103,20 @@ public class LamportClock extends Thread {
                 // update its logical clock
                 this.time = Math.max(e.localTime, this.time) + 1;
                 break;
+
+            // REQUEST EVENT
+            case 3:
+                // update its local clock
+                e.localTime = ++this.time;
+                // add new request to the priority queue
+                clockPQ.add(new Request(this.time, this.getId()));
+                String requestContent = "REQUEST-" + this.time + "-" + this.getId();
+                sendEvent(requestContent);
+                break;
+
+            // REPLY EVENT
+
+            // ACK EVENT
             default:
                 break;
         }
@@ -150,18 +169,25 @@ public class LamportClock extends Thread {
                 // System.out.println(this.getId() + " received " + s);
 
                 String[] meta = s.trim().split("-");
-                long senderId = Long.parseLong(meta[0]);
-                long receiverId = Long.parseLong(meta[1]);
-                int localTime = Integer.parseInt(meta[2]);
-                String content = "";
-                // if there is a message
-                if (meta.length >= 4)
-                    content = meta[3];
 
-                if (this.getId() == receiverId) {
-                    Event e = new Event(2, senderId, receiverId, localTime, content);
-                    updateTime(e);
+                // if this is a REQUEST event
+                if (meta[0].equals("REQUEST")) {
+                    long senderId = Long.parseLong(meta[2]);
+                } else {
+                    long senderId = Long.parseLong(meta[0]);
+                    long receiverId = Long.parseLong(meta[1]);
+                    int localTime = Integer.parseInt(meta[2]);
+                    String content = "";
+                    // if there is a message
+                    if (meta.length >= 4)
+                        content = meta[3];
+    
+                    if (this.getId() == receiverId) {
+                        Event e = new Event(2, senderId, receiverId, localTime, content);
+                        updateTime(e);
+                    }
                 }
+
             }
         } catch (Exception e) {
             System.err.println("LC Failed: " + e);

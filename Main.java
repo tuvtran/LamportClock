@@ -79,6 +79,13 @@ public class Main {
                         clocks[clockArrayId].updateTime(e);
                         break;
 
+                    case "REQUEST":
+                        clockArrayId = Integer.parseInt(splits[1]);
+                        firstProcessId = clocks[clockArrayId].getId();
+                        e = new Event(3, firstProcessId, -1, "");
+                        clocks[clockArrayId].updateTime(e);
+                        break;
+
                     default:
                         throw new RuntimeException("Invalid event name");
 
