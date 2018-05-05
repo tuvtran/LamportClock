@@ -2,6 +2,41 @@
 
 For this homework, I implemented Lamport clock and the resource allocated algorithm.
 
+## How to run:
+
+To compile the Lamport Clock manager:
+
+```bash
+$ javac Main.java
+```
+
+To run the Lamport Clock manager with 5 clocks:
+
+```bash
+$ java Main 5
+```
+
+Each clock is identified with a unique ID. However, to control their actions, we 
+use the order number specified when the program starts:
+
+```bash
+Process 0 Unique ID 10 is initialized with local clock 0
+Process 1 Unique ID 11 is initialized with local clock 0
+Process 2 Unique ID 12 is initialized with local clock 0
+```
+
+To execute local event on clock 2
+
+```bash
+$ local 2
+```
+
+To send a message from clock 1 to clock 0
+
+```bash
+$ send 1 0
+```
+
 ## Part 1: Lamport Clock
 
 In order to simulate a distributed environment, I used Java's `MulticastSocket` 
@@ -229,3 +264,91 @@ Process' local time 3
 Looks like the program is behaving correctly.
 
 ## Part 2: Resouce allocation
+
+To expand the case handling for different events related to request, reply and 
+acknowledgement of requests for distributed mutual exclusion, we add the following 
+to `updateTime()`:
+
+```java
+// REQUEST EVENT
+case 3:
+    // update its local clock
+    e.localTime = ++this.time;
+    // add new request to the priority queue
+    clockPQ.add(new Request(this.time, this.getId()));
+    String requestContent = "REQUEST-" + this.time + "-" + this.getId();
+    sendEvent(requestContent);
+    break;
+
+// REPLY REQUEST EVENT
+case 4:
+    // update its local clock
+    ++this.time;
+    // add new request to the priority queue
+    clockPQ.add(new Request(e.localTime, e.senderId));
+    break;
+
+// REPLY EVENT
+case 5:
+    e.localTime = ++this.time;
+    senderId = e.senderId;
+    break;
+
+// ACK EVENT
+case 6:
+    // update its local clock
+    ++this.time;
+    break;
+
+default:
+    break;
+```
+
+To add a class for wrapping around `Request`:
+
+```java
+/**
+ * This class represents a request to be added to the priority queue
+ */
+public class Request implements Comparable<Request> {
+
+    // ...
+
+    public Request(int time, long processId) {
+        this.time = time;
+        this.processId = processId;
+    }
+
+    // ...
+
+    @Override
+    public int compareTo(Request other) {
+        if (this.getTime() == other.getTime())
+            return 0;
+        else if (this.getTime() > other.getTime())
+            return 1;
+        else
+            return -1;
+    }
+
+}
+```
+
+We override `compareTo` so that each `Request` can be put into a process' `PriorityQueue`:
+
+```java
+public LamportClock(InetAddress group, int port) throws Exception {
+    // ...
+
+    // initialize the priority queue
+    this.clockPQ = new PriorityQueue<>();
+
+    // ...
+}
+```
+
+For a process to request to enter the critical section, we enter the following command:
+
+```bash
+$ request <process order number>
+```

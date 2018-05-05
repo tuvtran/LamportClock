@@ -114,7 +114,25 @@ public class LamportClock extends Thread {
                 sendEvent(requestContent);
                 break;
 
+            // REPLY REQUEST EVENT
+            case 4:
+                // update its local clock
+                ++this.time;
+                // add new request to the priority queue
+                clockPQ.add(new Request(e.localTime, e.senderId));
+                break;
+
             // REPLY EVENT
+            case 5:
+                e.localTime = ++this.time;
+                senderId = e.senderId;
+                break;
+
+            // ACK EVENT
+            case 6:
+                // update its local clock
+                ++this.time;
+                break;
 
             // ACK EVENT
             default:
@@ -139,6 +157,18 @@ public class LamportClock extends Thread {
                 break;
             case 2:
                 logging += "RECEIVE EVENT\n";
+                break;
+            case 3:
+                logging += "REQUEST EVENT\n";
+                break;
+            case 4:
+                logging += "RECEIVE REQUEST EVENT\n";
+                break;
+            case 5:
+                logging += "REPLY EVENT\n";
+                break;
+            case 6:
+                logging += "ACK EVENT\n";
                 break;
             default:
                 break;
@@ -172,7 +202,16 @@ public class LamportClock extends Thread {
 
                 // if this is a REQUEST event
                 if (meta[0].equals("REQUEST")) {
+                    int requestTime = Integer.parseInt(meta[1]);
                     long senderId = Long.parseLong(meta[2]);
+                    if (this.getId() != senderId) {
+                        // create a RECEIVE event for every clock
+                        Event e = new Event(4, senderId, this.getId(), requestTime, "");
+                        updateTime(e);
+                    }
+                // if this is a REPLY event
+                } else if (meta[0].equals("REPLY")) {
+
                 } else {
                     long senderId = Long.parseLong(meta[0]);
                     long receiverId = Long.parseLong(meta[1]);
