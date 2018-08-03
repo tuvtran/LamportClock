@@ -1,4 +1,4 @@
-# Homework 3 Writeup
+# Lamport Clock Implementation
 
 For this homework, I implemented Lamport clock and the resource allocated algorithm.
 
